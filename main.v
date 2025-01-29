@@ -28,6 +28,27 @@ pub fn pad(n u64, len u8) string {
     }
     return num_str
 }
+
+pub fn color_transition(start_color gx.Color, end_color gx.Color, total_steps int, current_step int) gx.Color {
+	if current_step <= 0 {
+		return start_color
+	}
+	if current_step >= total_steps {
+		return end_color
+	}
+
+	r1, g1, b1, a1 := start_color.r, start_color.g, start_color.b, start_color.a
+	r2, g2, b2, a2 := end_color.r, end_color.g, end_color.b, end_color.a
+
+	t := f32(current_step) / f32(total_steps)
+
+	r := u8(f32(r1) + (f32(r2) - f32(r1)) * t)
+	g := u8(f32(g1) + (f32(g2) - f32(g1)) * t)
+	b := u8(f32(b1) + (f32(b2) - f32(b1)) * t)
+	a := u8(f32(a1) + (f32(a2) - f32(a1)) * t)
+
+	return gx.Color{r, g, b, a}
+}
 /*--------------------------*/
 
 const window_title = "Brainfuck Race"
@@ -48,16 +69,18 @@ enum State {
 
 struct App {
 mut:
-	gg          	&gg.Context = unsafe {nil}
-	txtcfg			gx.TextCfg
-	theme			Theme
+	gg         &gg.Context = unsafe {nil}
+	txtcfg		 gx.TextCfg
+	theme			 Theme
 	frame_counter	u64
-	state			State = .tasks // temporarly 
-	ui				UI
-	pressed			[]gg.KeyCode = []gg.KeyCode{cap: 8}
-	p1_bf			bfck.Brainfuck
-	p2_bf			bfck.Brainfuck
-	str_task		string
+	state			 State = .tasks // temporarly 
+	ui				 UI
+	pressed    []gg.KeyCode = []gg.KeyCode{cap: 8}
+	p1_bf      bfck.Brainfuck
+	p2_bf      bfck.Brainfuck
+	p1_anim    int
+	p2_anim    int
+	str_task   string
 }
 
 struct Theme {
@@ -138,6 +161,7 @@ fn (mut app App) handle_move (ek gg.KeyCode) {
 				app.p1_bf = bfck.new_brainfuck(app.p1_bf.code)
 				app.p1_bf.run() or {}
 				if app.p1_bf.out == app.str_task {app.state = .p1_win app.pressed = []}
+				app.p1_anim = 20
 			} else {
 				for n,i in app.pressed {if find(allowed_keycodes, i) > 3 {combo = n}}
 				if app.p2_bf.code.len % 31 == 0 && app.p2_bf.code.len != 0 {app.p2_bf.code += "!"}
@@ -156,6 +180,7 @@ fn (mut app App) handle_move (ek gg.KeyCode) {
 				app.p2_bf = bfck.new_brainfuck(app.p2_bf.code)
 				app.p2_bf.run() or {}
 				if app.p2_bf.out == app.str_task {app.state = .p2_win; app.pressed = []}
+				app.p2_anim = 20
 			}
 		}
 	}
@@ -306,9 +331,19 @@ fn (mut app App) draw_ingame() {
 	player_size := (app.ui.window_height + app.ui.window_width) / 100
 	player_x := app.ui.window_width / 4 - player_size / 2
 	player_y := app.ui.window_height - app.ui.window_height / 3
-
-	app.gg.draw_circle_filled(player_x, player_y, player_size, app.theme.f_color)
-	app.gg.draw_circle_filled(player_x + app.ui.window_width / 2, player_y, player_size, app.theme.s_color)
+	
+	if app.p1_anim != 0 {
+	  mut circ_col := color_transition(app.theme.f_color, app.theme.s_color, 10, 20 - app.p1_anim)
+		if app.p1_anim < 11 {circ_col = color_transition(app.theme.s_color, app.theme.f_color, 10, 10 - app.p1_anim)}
+		app.p1_anim--
+		app.gg.draw_circle_filled(player_x, player_y, player_size, circ_col)
+	} else {app.gg.draw_circle_filled(player_x, player_y, player_size, app.theme.f_color)}
+	if app.p2_anim != 0 {
+    mut circ_col := color_transition(app.theme.s_color, app.theme.f_color, 10, 20 - app.p2_anim)
+    if app.p2_anim < 11 {circ_col = color_transition(app.theme.f_color, app.theme.s_color, 10, 10 - app.p2_anim)}
+    app.p2_anim--
+    app.gg.draw_circle_filled(player_x + app.ui.window_width / 2, player_y, player_size, circ_col)
+	} else {app.gg.draw_circle_filled(player_x + app.ui.window_width / 2, player_y, player_size, app.theme.s_color)}
 	fcfg := gx.TextCfg {
 		size: (app.ui.window_width + app.ui.window_height) / 50
 		color: app.theme.f_color
@@ -320,18 +355,20 @@ fn (mut app App) draw_ingame() {
 		color:app.theme.s_color
 	}
 	mut lines := app.p1_bf.code.split("!")
-	if lines.len > 5 {lines = unsafe{lines[lines.len - 5..lines.len - 1]}}
+	if lines.len > 5 {lines = unsafe{lines[lines.len - 5..lines.len]}}
 	for y, line in lines {
 		app.gg.draw_text(player_x, (app.ui.window_height / 4 - player_size / 2) / 2 + y * fcfg.size, line, fcfg)
 	}
 	lines = app.p2_bf.code.split("!")
-	if lines.len > 5 {lines = unsafe{lines[lines.len - 5..lines.len - 1]}}
+	if lines.len > 5 {lines = unsafe{lines[lines.len - 5..lines.len]}}
 	for y, line in lines {
 		app.gg.draw_text(player_x + app.ui.window_width / 2, (app.ui.window_height / 4 - player_size / 2) / 2 + y * fcfg.size, line, scfg)
 	}
 
 	mut x := app.ui.border_width * 3/2
-	mut y := player_y + app.ui.border_width * 5
+	mut y := player_y + app.ui.border_width * 3
+	if app.p1_bf.out != '' {app.gg.draw_text(x, y, "Out: ${app.p1_bf.out}", gx.TextCfg{...fcfg, align: .left})}
+	y += app.ui.border_width * 2
 	for n, i in app.p1_bf.tape {
 		if app.p1_bf.ptr == n {
 			app.gg.draw_text(x, y, pad(i, 4), scfg)
@@ -340,7 +377,9 @@ fn (mut app App) draw_ingame() {
 		if n == 9 {x = app.ui.border_width * 3 / 2; y += (app.ui.window_width + app.ui.window_height) / 50}
 	}
 	x = app.ui.border_width * 3/2 + app.ui.window_width / 2
-	y = player_y + app.ui.border_width * 5
+	y = player_y + app.ui.border_width * 3
+	if app.p2_bf.out != '' {app.gg.draw_text(x, y, "Out: ${app.p2_bf.out}", gx.TextCfg{...scfg, align: .left})}
+	y += app.ui.border_width * 2
 	for n, i in app.p2_bf.tape {
 		if app.p2_bf.ptr == n {
 			app.gg.draw_text(x, y, pad(i, 4), fcfg)

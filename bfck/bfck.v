@@ -36,7 +36,7 @@ pub fn (mut bf Brainfuck) run()! {
             `<` { if bf.ptr > 0 {bf.ptr--} }
             `+` { bf.tape[bf.ptr] = (bf.tape[bf.ptr] + 1) % 256 }
             `-` { bf.tape[bf.ptr] = (bf.tape[bf.ptr] - 1) % 256 }
-            `.` { bf.out += bf.tape[bf.ptr].ascii_str(); eprintln(bf.out)}
+            `.` { bf.out += bf.tape[bf.ptr].ascii_str()}
             `[` {
                 if bf.tape[bf.ptr] == 0 {
                     mut open_brackets := 1
