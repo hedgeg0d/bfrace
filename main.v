@@ -54,7 +54,7 @@ pub fn color_transition(start_color gx.Color, end_color gx.Color, total_steps in
 const window_title = "Brainfuck Race"
 const window_width = 1080
 const window_height = 720
-const allowed_keycodes = unsafe{[gg.KeyCode(65), gg.KeyCode(68), gg.KeyCode(83), gg.KeyCode(87), gg.KeyCode(262), 
+const allowed_keycodes = unsafe{[gg.KeyCode(65), gg.KeyCode(68), gg.KeyCode(83), gg.KeyCode(87), gg.KeyCode(262),
 	gg.KeyCode(263), gg.KeyCode(264), gg.KeyCode(265)]}
 
 enum State {
@@ -65,6 +65,7 @@ enum State {
 	pause
 	p1_win
 	p2_win
+	tutorial
 }
 
 struct App {
@@ -73,7 +74,7 @@ mut:
 	txtcfg		 gx.TextCfg
 	theme			 Theme
 	frame_counter	u64
-	state			 State = .tasks // temporarly 
+	state			 State = .menu // temporarly
 	ui				 UI
 	pressed    []gg.KeyCode = []gg.KeyCode{cap: 8}
 	p1_bf      bfck.Brainfuck
@@ -81,6 +82,7 @@ mut:
 	p1_anim    int
 	p2_anim    int
 	str_task   string
+	m_select   int
 }
 
 struct Theme {
@@ -117,19 +119,19 @@ fn init(mut app App) {
 }
 
 fn (mut app App) handle_combo(k1 gg.KeyCode, k2 gg.KeyCode) {
-		 if (k1 == .w && k2 == .a) || (k2 == .w && k1 == .a) {app.p1_bf.code += '['}
-	else if (k1 == .w && k2 == .d) || (k2 == .w && k1 == .d) {app.p1_bf.code += ']'}
-	else if (k1 == .s && k2 == .d) || (k2 == .s && k1 == .d) {app.p1_bf.code += '.'}
-	else if (k1 == .s && k2 == .a) || (k2 == .s && k1 == .a) {app.p1_bf.code += ','}
+		 if (k1 == .w && k2 == .a) || (k2 == .w && k1 == .a) {app.p1_bf.add_command('[')}
+	else if (k1 == .w && k2 == .d) || (k2 == .w && k1 == .d) {app.p1_bf.add_command(']')}
+	else if (k1 == .s && k2 == .d) || (k2 == .s && k1 == .d) {app.p1_bf.add_command('.')}
+	else if (k1 == .s && k2 == .a) || (k2 == .s && k1 == .a) {app.p1_bf.add_command(',')}
 	else if (k1 == .w && k2 == .s) || (k2 == .w && k1 == .s) {app.p1_bf.code = ''}
 	else if (k1 == .a && k2 == .d) || (k2 == .a && k1 == .d) {
 		if app.p1_bf.code.len != 0 {app.p1_bf.code = app.p1_bf.code[0..app.p1_bf.code.len - 1]}
 	}
 
-	else if (k1 == .up && k2 == .left) || (k2 == .up && k1 == .left) {app.p2_bf.code += '['}
-	else if (k1 == .up && k2 == .right) || (k2 == .up && k1 == .right) {app.p2_bf.code += ']'}
-	else if (k1 == .down && k2 == .right) || (k2 == .down && k1 == .right) {app.p2_bf.code += '.'}
-	else if (k1 == .down && k2 == .left) || (k2 == .down && k1 == .left) {app.p2_bf.code += ','}
+	else if (k1 == .up && k2 == .left) || (k2 == .up && k1 == .left) {app.p2_bf.add_command('[')}
+	else if (k1 == .up && k2 == .right) || (k2 == .up && k1 == .right) {app.p2_bf.add_command(']')}
+	else if (k1 == .down && k2 == .right) || (k2 == .down && k1 == .right) {app.p2_bf.add_command('.')}
+	else if (k1 == .down && k2 == .left) || (k2 == .down && k1 == .left) {app.p2_bf.add_command(',')}
 	else if (k1 == .down && k2 == .up) || (k2 == .down && k1 == .up) {app.p2_bf.code = ''}
 	else if (k1 == .left && k2 == .right) || (k2 == .left && k1 == .right) {
 		if app.p2_bf.code.len != 0 {app.p2_bf.code = app.p2_bf.code[0..app.p2_bf.code.len - 1]}
@@ -148,10 +150,10 @@ fn (mut app App) handle_move (ek gg.KeyCode) {
 				if app.p1_bf.code.len % 31 == 0 && app.p1_bf.code.len != 0 {app.p1_bf.code += "!"}
 				if combo == -1 {
 					match ek {
-						.w {app.p1_bf.code += "+"}
-						.a {app.p1_bf.code += "<"}
-						.s {app.p1_bf.code += "-"}
-						.d {app.p1_bf.code += ">"}
+						.w {app.p1_bf.add_command('+')}
+						.a {app.p1_bf.add_command('<')}
+						.s {app.p1_bf.add_command('-')}
+						.d {app.p1_bf.add_command('>')}
 						else {}
 					}
 				} else {
@@ -167,10 +169,10 @@ fn (mut app App) handle_move (ek gg.KeyCode) {
 				if app.p2_bf.code.len % 31 == 0 && app.p2_bf.code.len != 0 {app.p2_bf.code += "!"}
 				if combo == -1 {
 					match ek {
-						.up {app.p2_bf.code += "+"}
-						.left {app.p2_bf.code += "<"}
-						.down {app.p2_bf.code += "-"}
-						.right {app.p2_bf.code += ">"}
+						.up     {app.p2_bf.add_command('+')}
+						.left   {app.p1_bf.add_command('<')}
+						.down   {app.p1_bf.add_command('-')}
+						.right  {app.p1_bf.add_command('>')}
 						else {}
 					}
 				} else {
@@ -188,6 +190,20 @@ fn (mut app App) handle_move (ek gg.KeyCode) {
 
 fn (mut app App) handle_task_keys (ek gg.KeyCode) {
 	if (ek == .w && app.pressed.contains(.up)) || (ek == .up && app.pressed.contains(.w)) {app.state = .ingame; app.pressed = []}
+}
+
+fn (mut app App) handle_menu_keys(ek gg.KeyCode) {
+  if ek == .up {app.m_select--}
+  else if ek == .down {app.m_select++}
+  if app.m_select < 0 {app.m_select = 3}
+  else if app.m_select > 3 {app.m_select = 0}
+  if ek == .enter {
+    match app.m_select {
+      0 {app.state = .tasks}
+      3 {exit(0)}
+      else {}
+    }
+  }
 }
 
 fn on_event(e &gg.Event, mut app App) {
@@ -209,8 +225,9 @@ fn on_event(e &gg.Event, mut app App) {
 		}
 		.key_up {
 			ek := e.key_code
-			if app.state == .ingame {app.handle_move(ek)}
-			if app.state == .tasks  {app.handle_task_keys(ek)}
+			if app.state == .ingame  {app.handle_move(ek)}
+			if app.state == .tasks   {app.handle_task_keys(ek)}
+			if app.state == .menu    {app.handle_menu_keys(ek)}
 		}
 		.resized, .restored, .resumed {}
 		else {}
@@ -221,6 +238,7 @@ fn frame(mut app App) {
 	app.frame_counter++
 	app.gg.begin()
 	match app.state {
+	  .menu   {app.draw_menu()}
 		.ingame {app.draw_ingame()}
 		.tasks  {app.draw_tasks()}
 		.p1_win, .p2_win {app.draw_win()}
@@ -232,6 +250,23 @@ fn frame(mut app App) {
 fn (mut app App) gen_task () {
 	lines := os.read_lines("str_tasks") or {panic(err)}
 	app.str_task = lines[rand.int_in_range(0, lines.len) or {0}]
+}
+fn (mut app App) draw_menu() {
+  app.gg.draw_rect_filled(0, 0, window_width, window_height, app.theme.task_back)
+  mut cfg := gx.TextCfg{
+    size: (app.ui.window_width + app.ui.window_height) / 15
+    color: app.theme.background
+    align: .center
+    vertical_align: .middle
+  }
+  app.gg.draw_text(app.ui.window_width / 2, app.ui.window_height / 6, "Brainfuck Race", cfg)
+  cfg = gx.TextCfg{...cfg, size: (app.ui.window_width + app.ui.window_height) / 30}
+  hstep := int(app.ui.window_height / 6)
+  x := int(app.ui.window_width / 2)
+  app.gg.draw_text(x, app.ui.window_height / 6 + hstep * 1, "Start game", if app.m_select != 0 {cfg} else {gx.TextCfg{...cfg, color: app.theme.f_selection}})
+  app.gg.draw_text(x, app.ui.window_height / 6 + hstep * 2, "Rules", if app.m_select != 1 {cfg} else {gx.TextCfg{...cfg, color: app.theme.s_selection}})
+  app.gg.draw_text(x, app.ui.window_height / 6 + hstep * 3, "Tutorial", if app.m_select != 2 {cfg} else {gx.TextCfg{...cfg, color: app.theme.f_selection}})
+  app.gg.draw_text(x, app.ui.window_height / 6 + hstep * 4, "Exit", if app.m_select != 3 {cfg} else {gx.TextCfg{...cfg, color: app.theme.s_selection}})
 }
 
 fn (mut app App) draw_win() {
@@ -272,13 +307,13 @@ fn (mut app App) draw_tasks() {
 		app.theme.background
 	)
 	app.gg.draw_text(
-		app.ui.window_width / 2 - 50, 
+		app.ui.window_width / 2 - 50,
 		app.ui.window_height / 3 + app.ui.border_width * 6 + 100,
 		'p1',
 		cfg
 	)
 	app.gg.draw_text(
-		app.ui.window_width / 2 + 50, 
+		app.ui.window_width / 2 + 50,
 		app.ui.window_height / 3 + app.ui.border_width * 6 + 100,
 		'p2',
 		cfg
@@ -331,7 +366,7 @@ fn (mut app App) draw_ingame() {
 	player_size := (app.ui.window_height + app.ui.window_width) / 100
 	player_x := app.ui.window_width / 4 - player_size / 2
 	player_y := app.ui.window_height - app.ui.window_height / 3
-	
+
 	if app.p1_anim != 0 {
 	  mut circ_col := color_transition(app.theme.f_color, app.theme.s_color, 10, 20 - app.p1_anim)
 		if app.p1_anim < 11 {circ_col = color_transition(app.theme.s_color, app.theme.f_color, 10, 10 - app.p1_anim)}

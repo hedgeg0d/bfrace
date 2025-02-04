@@ -22,6 +22,18 @@ pub fn new_brainfuck(code string) &Brainfuck {
     }
 }
 
+pub fn (mut bf Brainfuck) add_command(com string) {
+  if bf.code.len < 1 {bf.code += com; return}
+    match com {
+        '+' {if bf.code[bf.code.len-1] == `-` {bf.code = bf.code[0..bf.code.len-1]} else {bf.code += com}}
+        '-' {if bf.code[bf.code.len-1] == `+` {bf.code = bf.code[0..bf.code.len-1]} else {bf.code += com}}
+        '>' {if bf.code[bf.code.len-1] == `<` {bf.code = bf.code[0..bf.code.len-1]} else {bf.code += com}}
+        '<' {if bf.code[bf.code.len-1] == `>` {bf.code = bf.code[0..bf.code.len-1]} else {bf.code += com}}
+        ']' {if bf.code[bf.code.len-1] == `[` {bf.code = bf.code[0..bf.code.len-1]} else {bf.code += com}}
+        else {bf.code += com}
+    }
+}
+
 pub fn (mut bf Brainfuck) run()! {
     mut loop_stack := []int{}
     code_len := bf.code.len
@@ -38,11 +50,12 @@ pub fn (mut bf Brainfuck) run()! {
             `-` { bf.tape[bf.ptr] = (bf.tape[bf.ptr] - 1) % 256 }
             `.` { bf.out += bf.tape[bf.ptr].ascii_str()}
             `[` {
+              if bf.code.len < 2 {return}
                 if bf.tape[bf.ptr] == 0 {
                     mut open_brackets := 1
                     for open_brackets > 0 && i + i < bf.code.len {
                         i++
-                        if bf.code[i] == `[` {open_brackets++} 
+                        if bf.code[i] == `[` {open_brackets++}
 						else if bf.code[i] == `]` {open_brackets--}
                     }
                     if open_brackets != 0 {eprintln("invalid loop");return}
@@ -55,7 +68,7 @@ pub fn (mut bf Brainfuck) run()! {
                 }
             }
             `]` {
-                if loop_stack.len > 0 && bf.tape[bf.ptr] != 0 {i = loop_stack.last() /* Jump back to the matching `[`*/} 
+                if loop_stack.len > 0 && bf.tape[bf.ptr] != 0 {i = loop_stack.last() /* Jump back to the matching `[`*/}
 				else if loop_stack.len > 0 {loop_stack.delete_last()}
             }
             else {}
